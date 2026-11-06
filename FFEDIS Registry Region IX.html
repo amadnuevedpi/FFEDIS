@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFEDIS Registry Region IX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: summary band (counts by province + NP-SS status, both clickable) → filter rail → 3-column registry list. DA field-green with harvest-gold accent. */
+:root{
+  --bg:#f3f5f0; --surface:#ffffff; --ink:#18241c; --muted:#5b6b60; --line:#d9e0d6;
+  --green:#1f6b3a; --green-soft:#e3efe6; --gold:#c98a0b; --gold-soft:#fbf1da;
+  --ok:#1f7a45; --bad:#b4372b; --priv:#2f5d9c; --pend:#7a6a3a;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111813; --surface:#18221b; --ink:#e6ede7; --muted:#9aaa9f; --line:#2b3a30;
+  --green:#5cbf7d; --green-soft:#1d3324; --gold:#e5ab3a; --gold-soft:#33291a;
+  --ok:#5cc485; --bad:#ef7d70; --priv:#7fa8e6; --pend:#c9b47c; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#111813; --surface:#18221b; --ink:#e6ede7; --muted:#9aaa9f; --line:#2b3a30;
+  --green:#5cbf7d; --green-soft:#1d3324; --gold:#e5ab3a; --gold-soft:#33291a;
+  --ok:#5cc485; --bad:#ef7d70; --priv:#7fa8e6; --pend:#c9b47c; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+header.top{background:var(--green);color:#fff}
+header.top .wrap{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding-top:18px;padding-bottom:18px}
+.brand small{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.brand h1{font-size:30px;line-height:1.1}
+.asof{font-size:13px;opacity:.9;text-align:right}
+.asof b{font-variant-numeric:tabular-nums}
+main.wrap{display:grid;gap:20px;padding-top:20px;padding-bottom:40px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.summary{display:grid;grid-template-columns:200px 1fr 1fr;gap:0}
+.summary>div{padding:16px 18px}
+.summary>div+div{border-left:1px solid var(--line)}
+.label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.big{font-family:var(--display);font-size:56px;line-height:1;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.sub{font-size:13px;color:var(--muted)}
+.bars{display:grid;gap:6px;margin-top:8px}
+.bar{display:grid;grid-template-columns:minmax(120px,190px) 1fr 34px;gap:10px;align-items:center;background:none;border:0;padding:3px 4px;border-radius:6px;cursor:pointer;text-align:left}
+.bar:hover{background:var(--green-soft)}
+.bar.on{background:var(--gold-soft)}
+.bar .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .tr{height:10px;background:var(--green-soft);border-radius:5px;overflow:hidden}
+.bar .fl{height:100%;background:var(--green);border-radius:5px}
+.bar.on .fl{background:var(--gold)}
+.bar .ct{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;text-align:right}
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.stat{border:1px solid var(--line);border-left:5px solid var(--c);border-radius:8px;padding:8px 10px;background:none;text-align:left;cursor:pointer}
+.stat:hover{background:var(--green-soft)}
+.stat.on{background:var(--gold-soft);border-color:var(--gold);border-left-color:var(--c)}
+.stat .n{font-family:var(--display);font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat .t{font-size:12.5px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:290px 1fr;gap:20px;align-items:start}
+.filters{padding:16px;display:grid;gap:14px;position:sticky;top:12px}
+.filters h2{font-size:20px}
+.field{display:grid;gap:4px}
+.field label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+.field select:disabled{opacity:.55}
+.hint{font-size:12px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:7px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--green)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#1d1503}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.link{border:0;background:none;padding:0;color:var(--green);text-decoration:underline;font-weight:600}
+.results{overflow:hidden}
+.rhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.rhead h2{font-size:22px}
+.rhead .count{color:var(--muted);font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 0}
+.chip{display:inline-flex;gap:6px;align-items:center;background:var(--green-soft);border:1px solid transparent;border-radius:99px;padding:3px 6px 3px 10px;font-size:12.5px}
+.chip button{border:0;background:none;cursor:pointer;font-size:14px;line-height:1;padding:0 4px;color:var(--muted)}
+.chip button:hover{color:var(--bad)}
+.tablebox{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--surface);white-space:nowrap}
+th button{all:unset;cursor:pointer}
+th button:hover{color:var(--ink)}
+td.reg{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:var(--green);width:170px}
+td.nm{font-weight:600}
+td.loc{color:var(--muted);font-size:13.5px}
+td.idx{color:var(--muted);font-variant-numeric:tabular-nums;width:44px}
+tbody tr:hover td{background:var(--green-soft)}
+mark{background:var(--gold-soft);color:inherit;padding:0 1px;border-radius:2px}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.pager{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 16px}
+.pager .pgs{display:flex;gap:6px;align-items:center}
+.note{font-size:12.5px;color:var(--muted);padding:0 16px 14px}
+.owner{padding:16px;display:grid;gap:12px}
+.owner h2{font-size:20px}
+.owner .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.logtable td,.logtable th{padding:7px 10px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;max-width:min(560px,92vw);z-index:60;display:none}
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(10,20,12,.55);display:none;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto;z-index:50}
+.scrim.open{display:flex}
+.modal{background:var(--surface);border-radius:12px;max-width:620px;width:100%;border:1px solid var(--line)}
+.modal header{padding:18px 20px 12px;border-bottom:1px solid var(--line)}
+.modal header h2{font-size:24px}
+.modal header p{margin:4px 0 0;color:var(--muted);font-size:13.5px}
+.modal form{padding:16px 20px;display:grid;gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.req{color:var(--bad)}
+.scope{background:var(--gold-soft);border-radius:8px;padding:10px 12px;font-size:13px}
+.scope b{font-variant-numeric:tabular-nums}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:13px}
+.consent input{margin-top:3px;width:16px;height:16px;flex:none}
+.err{color:var(--bad);font-size:13px;min-height:1em}
+.actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px}
+@media (max-width:980px){
+  .summary{grid-template-columns:1fr}
+  .summary>div+div{border-left:0;border-top:1px solid var(--line)}
+  .layout{grid-template-columns:1fr}
+  .filters{position:static}
+}
+@media (max-width:560px){
+  .grid2{grid-template-columns:1fr}
+  .status-grid{grid-template-columns:1fr}
+  td.loc{font-size:13px}
+  th,td{padding:9px 10px}
+  .asof{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <small>Department of Agriculture · RFO IX · AMAD</small>
+      <h1>FFEDIS Registered Enterprises</h1>
+      <small style="text-transform:none;letter-spacing:0">Farm and Fisheries Enterprise Development Information System · Region IX (Zamboanga Peninsula)</small>
+    </div>
+    <div class="asof">Masterlist as of <b id="asof">–</b><br><span id="srcnote"></span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card summary" aria-label="Summary">
+    <div>
+      <div class="label">Registered enterprises</div>
+      <div class="big" id="kTotal">0</div>
+      <div class="sub" id="kSub"></div>
+    </div>
+    <div>
+      <div class="label">By province / HUC <span class="hint" style="text-transform:none;letter-spacing:0">· click to filter</span></div>
+      <div class="bars" id="provBars"></div>
+    </div>
+    <div>
+      <div class="label">NP-SS classification <span class="hint" style="text-transform:none;letter-spacing:0">· click to filter</span></div>
+      <div class="status-grid" id="statusTiles"></div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <aside class="card filters" aria-label="Search and filters">
+      <h2>Search &amp; filter</h2>
+      <div class="field">
+        <label for="q">Search</label>
+        <input id="q" type="search" placeholder="Enterprise name, FFEDIS no., barangay, commodity" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="fProv">Province / HUC</label>
+        <select id="fProv"></select>
+      </div>
+      <div class="field">
+        <label for="fMun">City / Municipality</label>
+        <select id="fMun"></select>
+      </div>
+      <div class="field">
+        <label for="fStatus">NP-SS classification</label>
+        <select id="fStatus"></select>
+      </div>
+      <div class="field">
+        <label for="fCat">Commodity group</label>
+        <select id="fCat"></select>
+      </div>
+      <div class="field">
+        <label for="fCom">Commodity</label>
+        <select id="fCom"></select>
+        <span class="hint">Spelling variants in the masterlist are grouped (e.g. Rice / RICE).</span>
+      </div>
+      <div class="field">
+        <label for="fType">Enterprise type</label>
+        <select id="fType"></select>
+      </div>
+      <button class="btn" id="reset" type="button">Clear all filters</button>
+    </aside>
+
+    <section class="card results" aria-label="Registry list">
+      <div class="rhead">
+        <div>
+          <h2>List of FFEDIS-registered enterprises</h2>
+          <div class="count" id="count"></div>
+        </div>
+        <button class="btn primary" id="dlBtn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>
+          Download PDF
+        </button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="tablebox">
+        <table>
+          <thead><tr>
+            <th scope="col">#</th>
+            <th scope="col"><button type="button" data-sort="r">FFEDIS Reg. No. <span data-ar="r"></span></button></th>
+            <th scope="col"><button type="button" data-sort="n">Enterprise Name <span data-ar="n"></span></button></th>
+            <th scope="col"><button type="button" data-sort="l">Location <span data-ar="l"></span></button></th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <div class="field" style="grid-auto-flow:column;align-items:center;gap:8px">
+          <label for="per" style="white-space:nowrap">Rows per page</label>
+          <select id="per" style="width:auto"><option>25</option><option>50</option><option>100</option><option value="0">All</option></select>
+        </div>
+        <div class="pgs" id="pgs"></div>
+      </div>
+      <p class="note">Only the FFEDIS registration number, enterprise name and location are shown. Contact persons, contact numbers, e-mails and RSBSA numbers are withheld under the Data Privacy Act of 2012 (RA 10173).</p>
+    </section>
+  </div>
+
+  <section class="card owner" id="ownerPanel" hidden aria-label="Administrator tools">
+    <h2>Administrator tools <span class="hint" style="font-family:var(--body);font-weight:400">· visible to you as owner only</span></h2>
+    <div class="row">
+      <label class="btn green" for="csvIn" style="cursor:pointer">Update masterlist from FFEDIS CSV export</label>
+      <input id="csvIn" type="file" accept=".csv,text/csv" hidden>
+      <span class="hint" id="upNote">Upload the latest FFEDIS MASTERLIST export (.csv). Classify NP-SS status in the REMARKS column: “NP-SS Qualified”, “Not Qualified” or “Private Partner”.</span>
+    </div>
+    <div class="row">
+      <h3 style="font-size:18px">Download requests log</h3>
+      <button class="btn" id="logCsv" type="button">Export log (.csv)</button>
+      <span class="hint" id="logNote"></span>
+    </div>
+    <div class="tablebox"><table class="logtable"><thead><tr><th>Date / time</th><th>Control no.</th><th>Requisitioner</th><th>Position</th><th>Office / Organization</th><th>Purpose</th><th>Records</th><th>Filters</th></tr></thead><tbody id="logBody"><tr><td colspan="8" class="empty">No requests logged yet.</td></tr></tbody></table></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal">
+    <header>
+      <h2 id="mTitle">Request to download list</h2>
+      <p>Fill in the requisitioner details. They are printed on the PDF and recorded in the AMAD download log.</p>
+    </header>
+    <form id="reqForm" novalidate>
+      <div class="scope" id="scope"></div>
+      <div class="field">
+        <label for="rName">Name of Requisitioner <span class="req">*</span></label>
+        <input id="rName" required autocomplete="name" placeholder="e.g. Juan A. Dela Cruz">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="rOffice">Office / Organization <span class="req">*</span></label>
+          <input id="rOffice" required autocomplete="organization" placeholder="e.g. DA-RFO IX, LGU Molave, MAO">
+        </div>
+        <div class="field">
+          <label for="rPos">Position / Designation <span class="req">*</span></label>
+          <input id="rPos" required autocomplete="organization-title" placeholder="e.g. Agricultural Technologist">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="rEmail">E-mail address</label>
+          <input id="rEmail" type="email" autocomplete="email" placeholder="optional">
+        </div>
+        <div class="field">
+          <label for="rPhone">Contact no.</label>
+          <input id="rPhone" type="tel" autocomplete="tel" placeholder="optional">
+        </div>
+      </div>
+      <div class="field">
+        <label for="rPurpose">Purpose of download <span class="req">*</span></label>
+        <select id="rPurpose" required>
+          <option value="">Select purpose…</option>
+          <option>Market linkage / buyer matching</option>
+          <option>Program planning and targeting (e.g. NP-SS, SAAD, Kadiwa)</option>
+          <option>Monitoring and evaluation / validation</option>
+          <option>Official report or briefer</option>
+          <option>Research / academic study</option>
+          <option>Partnership or investment facilitation</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="rDetail">Purpose details <span class="req">*</span></label>
+        <textarea id="rDetail" rows="2" required placeholder="Briefly state how the list will be used"></textarea>
+      </div>
+      <label class="consent"><input id="rConsent" type="checkbox" required> <span>I certify that the information above is true and that the list will be used solely for the stated purpose, in accordance with the Data Privacy Act of 2012 (RA 10173).</span></label>
+      <div class="err" id="fErr" role="alert"></div>
+      <div class="actions">
+        <button class="btn" type="button" id="cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="genBtn">Generate PDF</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+const EMBED = {"cols":["PROVINCE /HUC","CITY /MUNICIPALITY /SUB-MUNICIPALITY","BARANGAY","ADDRESS LINE","ENTERPRISE NAME","REGISTRATION NO.","ENTERPRISE TYPE","ASSET SIZE","CEREALS","LOWLAND VEGETABLES","UPLAND VEGETABLES","FRUITS AND NUTS","SPICES","ROOT CROPS","POULTRY PRODUCTS","LIVESTOCK PRODUCTS","FISHERIES AND AQUACULTURE","INDUSTRIAL CROPS AND PRODUCTS","HALAL","ORGANIC PRODUCTS","OTHERS","REMARKS"],"rows":[["ZAMBOANGA DEL NORTE","CITY OF DIPOLOG","DICAYAS","","LIMALINE NON-SPECIALIZED WHOLESALE TRADING","CN 09-202605-00014","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","AMPALAYA, ANY OTHER LOCAL AGRICULTURE PRODUCTS PRODUCED BY LOCAL FARMERS, Eggplant, GABI, SINGKAMAS, Sitaw, SWEET POTATO","B. BEANS, BAGUIO BEANS, BITTER GOURD, Cabbage, Carrots, CHAYOTE, EGGPLANT, Pechay Bagiuo, PIPINO, Potato, RADISH","AMPALAYA, Banana, BANANA(ALL KINDS), CALABASH, Calamansi, CORN, IMPORTED FRUITS, Mango, OTHER LOCALLY GROWN FRUITS, Papaya, Pineapple, Watermelon","7 HERBS, ASIN, ASSORTED HERBS, ATSAL, BASIL, BAWANG (RETAIL), BAY LEAVES, BELL PEPPER, CELERY, DAHON NG SIBUYAS, Garlic, GINGER (RETAIL), LABUYO, LEAVES, Onion, OTHER CULINARY HERBS, PAMINTA, Sili, SUKA, VINEGAR","","BACKYARD CHICKEN, BROWN EGGS, Chicken Eggs, Dressed Chicken, FROZEN FOODS/PROCESSED","","","","","","",""],["ZAMBOANGA DEL NORTE","CITY OF DIPOLOG","SANTA FILOMENA","","STA. FELOMINA FARMER'S MULTI-PURPOSE COOPERATIVE","CN 09-202608-00010","Cooperative","Micro-scale (Up to ₱3,000,000)","Rice","Eggplant, Sitaw, Tomato","","","","","","Pork","","","","","",""],["ZAMBOANGA DEL NORTE","KATIPUNAN","MATAM","P-7","MATAM COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202603-00002","Cooperative","Micro-scale (Up to ₱3,000,000)","Cassava, Corn (Feed), Corn (Food), Rice","Eggplant, Sitaw, Squash","Pechay Bagiuo, Potato","Banana, Watermelon","","Gabi, Sweet Potato","Chicken (live), Chicken Eggs","PIG","Tilapia","Cacao","","","",""],["ZAMBOANGA DEL NORTE","LA LIBERTAD","SANTA CRUZ","","STA. CRUZ SMALL COCONUT FARMERS MULTI-PURPOSE COOPERATIVE","CN 09-202602-00001","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","COCONUT CHARCOAL, COPRA/ VINEGAR",""],["ZAMBOANGA DEL NORTE","LABASON","BALAS","","BALAS COCONUT FARMERS AGICULTURE COOPERATIVE (BALCOFAGCO)","CN 09-202606-00014","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","Cacao, Coffee","","","COCO FIBER, COCO VINEGAR, Coconut, COCONUT SEEDLINGS",""],["ZAMBOANGA DEL NORTE","LABASON","LA UNION","","LABASON IRRIGATORS AGRICULTURE COOPERATIVE (LABIAGCO)","CN 09-202607-00009","Cooperative","Micro-scale (Up to ₱3,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL NORTE","LABASON","PATAWAG","","SOPHIA'S BROILER CHICKEN FARM","CN 09-202605-00006","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","Chicken (live), Dressed Chicken","","","","","","",""],["ZAMBOANGA DEL NORTE","LABASON","PATAWAG","","UPPER PATAWAG COCONUT FARMERS ASSOCIATION","CN 09-202607-00013","Association","Micro-scale (Up to ₱3,000,000)","","","","","","","","BABOY, Live Animals","","","","","COCONUT BY PRODDUCTS, COCONUT SEEDLINGS",""],["ZAMBOANGA DEL NORTE","LILOY","SILUCAP","PUROK 3","NEGOSYO SA BUKID - FOOD PRODUCTS","CN 09-202604-00012","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","Ginger, TURMERIC","","","","","","","","",""],["ZAMBOANGA DEL NORTE","LILOY","MAUSWAGON","","NYLRA PIGGERY FARM","CN 09-202607-00012","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","LIVE ANIMAL-HOG","","","","","",""],["ZAMBOANGA DEL NORTE","MUTIA","POBLACION","","CHARLES&MARGARET LIVESTOCK FARM","CN 09-202609-00003","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","SWINE","","","","","",""],["ZAMBOANGA DEL NORTE","MUTIA","SANTO TOMAS","","MUTIA CACAO SMALL COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202604-00002","Cooperative","Micro-scale (Up to ₱3,000,000)","CORN, Rice","","","","","","","","","Cacao, CHOCOLATE PRODUCTS","","","COCONUT PRODUCTS, SUKA",""],["ZAMBOANGA DEL NORTE","POLANCO","LINGASAD","","DOUBLE J AND P LIVESTOCK AND POULTRY FARM","CN 09-202607-00023","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","Chicken (live), Dressed Chicken","PIG, Pork","","","","","",""],["ZAMBOANGA DEL NORTE","RIZAL","LA ESPERANZA","","LA ESPERANZA COCONUT FARMERS AGRICULTURE COOPERATIVE (LESCOFACO)","CN 09-202602-00003","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","CALAMANSI JUICE, COCONUT VINEGAR",""],["ZAMBOANGA DEL NORTE","SALUG","LANAWAN","PUROK 4","FINS ‘N CLAW FRESHWATER CRUSTACEAN CULTURE","CN 09-202607-00022","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","","","CRAYFISH","","","","",""],["ZAMBOANGA DEL NORTE","SERGIO OSMEñA SR.","TUBURAN","","EL-CE STRAWBERRY FARM( LA PRESA FARM)","CN 09-202609-00004","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","","BELL PEPPER, Cabbage","","","","","","","","","","STRAWBERRY",""],["ZAMBOANGA DEL NORTE","SERGIO OSMEñA SR.","VENUS","","VENUS SERGIO OSMEÑA COCONUT FARMERS AGRICULTURE COOPERATIVE (VESERCOCOFARCOOP)","CN 09-202604-00001","Cooperative","Micro-scale (Up to ₱3,000,000)","CORN, Rice","Eggplant, Sitaw, Squash","","Banana","","Sweet Potato","","HOG","","COCONUT, Coffee","","","CHARCOAL, COCONUT BY-PRODUCTS, COCOPEAT, COPRA, WALIS TINGTING",""],["ZAMBOANGA DEL NORTE","SIBUCO","LINTANGAN","PUROK 7","SUBANON INDIGENOUS PEOPLES ANCESTRAL DOMAIN AGRICULTURE COOPERATIVE (SIPADAC)","CN 09-202606-00020","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","","","WHOLE COCONUT","","","COPRA",""],["ZAMBOANGA DEL NORTE","SIBUCO","LUNDAY","SITIO BACUNG","ASSOSACION DE MAGA IRRIGATORS DE LUNDAY, INC.","CN 09-202606-00008","Association","Micro-scale (Up to ₱3,000,000)","Corn (Feed), Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL NORTE","SIBUTAD","POBLACION","","NANJANE CRUNCHY CHICHARON MANUFACTURING","CN 09-202608-00002","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","","Beef, CHICHARON","","","","","",""],["ZAMBOANGA DEL NORTE","SINDANGAN","BINUANGAN","","ELLEN'S PIGGERY","CN 09-202606-00005","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","","PIG","","","","","",""],["ZAMBOANGA DEL NORTE","SIRAWAI","PIACAN","","SALIHON RICE PRODUCTION","CN 09-202604-00007","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL NORTE","TAMPILISAN","BARILI","","LONGCOB POULTRY FARM","CN 09-202609-00010","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","Chicken Eggs, CHICKEN LAYER","","","","","","",""],["ZAMBOANGA DEL NORTE","TAMPILISAN","MALILA-T","","RDJ HOGS AND POULTRY SUPPLY","CN 09-202610-00001","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","Chicken Eggs","HOGS-FATTENING","","","","","",""],["ZAMBOANGA DEL NORTE","JOSE DALMAN","SIGAMOK","","SIGAMOK FARMERS ASSOCIATION","CN 09-202603-00008","Association","Small-scale (₱3,000,001 - ₱15,000,000)","Corn (Food), Rice","","","","","","","","","","","","ORGANIC FERTILIZER",""],["ZAMBOANGA DEL NORTE","GUTALAC","MATUNOY","","MATUNOY FARMERS MULTI-PURPOSE COOPERATIVE","CN 09-202607-00017","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","Rice","Eggplant","","","","","Chicken (live)","","","","","","COPRA/COCONUT",""],["ZAMBOANGA DEL NORTE","KALAWIT","PARAISO","","KAPUNONGAN SA MAG-UUMA SA PARAISO","CN 09-202604-00008","Association","Micro-scale (Up to ₱3,000,000)","","","","","","","","HOGS (LIVE)","","","","","",""],["ZAMBOANGA DEL SUR","AURORA","CABILINAN","","TUMALA GENERAL MERCHANDISE","CN 09-202610-00010","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","Eggplant, OKRA","SITAW","Banana, LANSONES, Pineapple, RAMBUTAN","","","LAYER, POULTRY","","","","","","",""],["ZAMBOANGA DEL SUR","AURORA","KAHAYAGAN EAST","PUROK RUBIA","ACES AGRICULTURE COOPERATIVE (AAC)","CN 09-202606-00011","Cooperative","Medium-scale (₱15,000,001 - ₱100,000,000)","MILLED RICE, RICE BRAN, RICE GRAINS (BUGAS), RICE HULL, RICE MILLING","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","AURORA","KAHAYAGAN EAST","","AURORA COCO FARMERS AGRICULTURE COOPERATIVE (ACFA)","CN 09-202605-00018","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","COCONUT BY- PRODUCTS (COPRA, MACAPUNO,COCONUT HUSK, COCONUT SHELL)",""],["ZAMBOANGA DEL SUR","AURORA","SAN JOSE","","JMTC SARI-SARI STORE","CN 09-202610-00007","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","EGGPLANT, SITAW, SQUASH, TOMATO","","BANANA (LAKATAN), MANGA, Papaya","GINGER (RETAIL), Sili","","CHICKEN LIVE - FREE RANGE","","","COCONUT, FALCATA, GMELINA","","","",""],["ZAMBOANGA DEL SUR","BAYOG","POBLACION","","AGP LIVESTOCK & MEAT RETAIL","CN 09-202609-00013","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","Rice","","","","","","","HOG FATTENING","","","","","",""],["ZAMBOANGA DEL SUR","BAYOG","POBLACION","","G-PARAN VEGETABLE AND SPICES TRADING","CN 09-202609-00011","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","Rice","","","","","","","HOGS-FATTENING","","","","","",""],["ZAMBOANGA DEL SUR","DIMATALING","TINGGABULONG","","TINGGABULONG SMALL COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202603-00005","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","COPRA","","","COPRA/VINEGAR",""],["ZAMBOANGA DEL SUR","DINAS","KINACAP","","DINAS SMALL COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202607-00006","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","COCONUT","","","COPRA",""],["ZAMBOANGA DEL SUR","DINAS","SAMBULAWAN","","SITIO BUTITIAN COCONUT FARMERS AGRICULTURE COOPERATIVE (SBCFARBCO)","CN 09-202605-00019","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","COCO SAP, Coconut, COCONUT BY- PRODUCTS (COPRA, MACAPUNO,COCONUT HUSK, COCONUT SHELL)",""],["ZAMBOANGA DEL SUR","KUMALARANG","DIPLO","","BALUNO DUMALIAN DIPLO IRRIGATORS ASSO., INC.","CN 09-202607-00019","Association","Small-scale (₱3,000,001 - ₱15,000,000)","Cassava, Corn (Feed), Corn (Food), Rice","","","","","","","","","Cacao, COCO BY-PRODUCTS, COCONUT, Coffee, WHOLESALE OF COCONUT, COCONUT-BASED PRODUCTS, AND COCONUT BY-PRODUCTS (E.G. COPRA, MACAPUNO, COCONUT HUSK, COCONUT SHELL","","","",""],["ZAMBOANGA DEL SUR","LABANGAN","LANTIAN","","LANTIAN  LABANGAN IRRIGATORS AGRICULTURE COOPERATIVE","CN 09-202605-00013","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","IRRIGATION SERVICES",""],["ZAMBOANGA DEL SUR","LABANGAN","LANTIAN","","ZAMBOANGA DEL SUR RICE SEEDS GROWER AGRICULTURE COOPERATIVE","CN 09-202606-00015","Cooperative","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice, RICE SEED","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","LABANGAN","TAPODOC","","MAGALASIN RICE AND CORN MILL","CN 09-202610-00009","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","LABANGAN","TAWAGAN NORTE","","LABRIS DIVISION B AGRICULTURE COOPERATIVE","CN 09-202608-00001","Cooperative","Micro-scale (Up to ₱3,000,000)","CORN, Rice","","","","","","","","","","","","FEEDS, FERILIZER, INSECTICIDES",""],["ZAMBOANGA DEL SUR","LABANGAN","TAWAGAN NORTE","","MADISKARTENG MAGSASAKA VEGETABLE GROWER'S ASSOCIATION","CN 09-2024-00278","Association","Micro-scale (Up to ₱3,000,000)","","Eggplant, Squash","","Watermelon","","SINGKAMAS","","","","","","","",""],["ZAMBOANGA DEL SUR","LABANGAN","TAWAGAN NORTE","PUROK RAMBAK","RICH JHON AGRICULTURAL FARM TRAINING CENTER INC.","CN 09-202607-00010","Corporation","Small-scale (₱3,000,001 - ₱15,000,000)","","ALL LOWLAND VEGETABLE","","","","","","Live Animals, Milk and Dairy Products","","","","ALL LOWLAND VEGETABLES, ORGANIC VEGETABLE SEEDLINGS, ORGANIC FERTILIZER","",""],["ZAMBOANGA DEL SUR","LABANGAN","UPPER CAMPO ISLAM","","COCOS NUCIFERA AGRICULTURE COOPERATIVE","CN 09-202605-00022","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","COCONUT (VCO",""],["ZAMBOANGA DEL SUR","LAPUYAN","BULAWAN","","BULAWAN COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202608-00006","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","","","","","","COCO COIR, COCONET, COCONUT BY PRODDUCTS, COCONUT BY PRODUCTS ( COCO PEAT",""],["ZAMBOANGA DEL SUR","MIDSALIP","CUMARON","PUROK 2","CUMARON SMALL COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202607-00014","Cooperative","Micro-scale (Up to ₱3,000,000)","Corn (Feed), Corn (Food), OTHER GRAINS, PALAY","","","","","","","","","","","","COCONUT BASE PRODUCTS, COCONUT BY- PRODUCTS (COPRA, MACAPUNO,COCONUT HUSK, COCONUT SHELL)",""],["ZAMBOANGA DEL SUR","MIDSALIP","POBLACION B","PUROK 1","ETHAN VARIETY STORE","CN 09-202606-00018","Single Proprietor","Micro-scale (Up to ₱3,000,000)","ALL","ALL LOWLAND VEGETABLE","ALL HIGHLAND VEGETABLES, ALL LOWLAND VEGETABLES, ALL UPLAND VEGETABLES","ALL","ALL","ALL","ALL","ALL","ALL FISHERY PRODUCTS","ALL","","ALL","",""],["ZAMBOANGA DEL SUR","MIDSALIP","POBLACION B","PUROK 1","KILLUA ENTERPRISES","CN 09-202609-00012","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","ANIMAL FEEDS, BUGAS/RICE, FERTILIZER, Rice","(ALL LOWLAND VEGETABLE), ALL LOWLAND VEGETABLE SEEDS, SQUASH NOODLES","ALL HIGHLAND VEGETABLES","AND MORE, APPLES, BANANA (RETAIL), Mango, TUNDAN & SABA, Watermelon","(ALL-IN SEASONING MIX), BELL PEPPER, Garlic, MONGO, Onion, SWEET PEPER","CAMOTE, CASSAVA, LUTYA, Sweet Potato","BY PRODUCTS, Chicken Eggs, Dressed Chicken, FROZEN FOODS, OTHER PARTS OF CHICKEN","BABOY, BAKA, BEEF), FROZEN MEAT PRODUCTS, Milk and Dairy Products, Pork, Processed Meat","ALL FISHERY PRODUCTS, ASSORTED FISH, Dried Fish","70% DARK CHOCOLATE, AGRICULTURAL PRODUCTS, CHAMPURADO, FERTILIZER","","ALL LOWLAND VEGETABLES, ORGANIC VEGETABLE SEEDLINGS, ORGANIC FERTILIZER","AGRI PRODUCTS, AGRI-SUPPLY, AGRICHEMICALS/ FERTILIZERS, AGRICULTURAL SEEDS, GROCERY PRODCUTS",""],["ZAMBOANGA DEL SUR","MOLAVE","BLANCIA","","HEAVEN'S GIFT BAKEHAUS","CN 09-2024-00339","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Rice","","","Banana","Garlic, Onion","Yam","","","","Cacao","","","",""],["ZAMBOANGA DEL SUR","MOLAVE","DALAON","","GARDO COCONUT PLANT NURSERY","CN 09-202606-00002","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","","CATTLE, GOAT, SWINE","","COCONUT","","","CHARCOAL, COCONUT SEED PRODUCTS, COPRA",""],["ZAMBOANGA DEL SUR","MOLAVE","DIPOLO","PUROK VALE","FERNANDEZ BUY AND SELL & MILLING","CN 09-202608-00005","Single Proprietor","Medium-scale (₱15,000,001 - ₱100,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","MOLAVE","CULO","","GREEN FIELDS AGRICULTURAL PRODUCTS TRADING","CN 09-202607-00020","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","Corn (Food), Rice","","","","","","Chicken (live), Chicken Eggs","LIVE HOG/SWINE, Pork","","","","","",""],["ZAMBOANGA DEL SUR","MOLAVE","CULO","MOLAVE, ZAMBOANGA DEL SUR","PUTING MANOK CORPORATION","CN 09-202607-00011","Corporation","Large-scale (₱100,000,001 and above)","","","","COCO","","","BY PRODUCTS, CHICKEN (CULL), CHICKEN DUNG, Chicken Eggs, CHICKEN LUMPIA, CHICKEN TOCINO, CHOICE CUTS CHICKEN, Dressed Chicken, PREMIXES","","","","","BIOFERTILIZER","",""],["ZAMBOANGA DEL SUR","MOLAVE","CULO","","RETUERTO AGRICULTURAL FARM","CN 09-202607-00016","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Corn (Feed), Rice","","","","","","Chicken (live), Chicken Eggs, Dressed Chicken","BEEF), CATTLE, FLAVORED MILK, FRESH MILK, Live Animals, MILK BARS, Pork, SWINE","Tilapia","","","","",""],["ZAMBOANGA DEL SUR","MOLAVE","MALOLOY-ON","YANGCO St.","MOCRECO MULTIPURPOSE COOPERATIVE (MOCRECO MPC)","CN 09-2022-00150","Cooperative","Medium-scale (₱15,000,001 - ₱100,000,000)","Corn (Food), Rice","","","Banana, Mango, Watermelon","BELL PEPPER, Ginger","","Chicken Eggs, Dressed Chicken","Pork","","Cacao","","","Coconut",""],["ZAMBOANGA DEL SUR","MOLAVE","MILIGAN","PUROK FERRY","JTHEO POULTRY FARM","CN 09-202611-00001","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Rice","","","","","","EGG PRODUCTION","CHICKEN","","","","","",""],["ZAMBOANGA DEL SUR","MOLAVE","RIZAL","","MOLAVE IRRIGATORS AGRICULTURE COOPERATIVE","CN 09-202611-00002","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","PALAY, Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","CITY OF PAGADIAN","SANTA LUCIA","","KMA GENERAL MERCHANDISE MERCHANDISING OPC","CN 09-202610-00008","Corporation","Medium-scale (₱15,000,001 - ₱100,000,000)","Corn (Food), Rice","Tomato","","DRAGON FRUITS","","","Chicken (live)","(GOAT, SWINE","","","","","",""],["ZAMBOANGA DEL SUR","CITY OF PAGADIAN","TULAWAS","","TULAWAS IRRIGATORS' ASSOCIATION, INC.","CN 09-202606-00007","Association","Micro-scale (Up to ₱3,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","RAMON MAGSAYSAY","CAMPO IV","","CAMPO IV AGRARIAN REFORM BENEFICIARIES AND FARMERS COOPERATIVE (CIVCABEFAMCO)","CN 09-2022-00181","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","RAMON MAGSAYSAY","POBLACION","","LIK-LIK GENERAL MERCHANDISE","CN 09-202606-00019","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","BUGAS/RICE, CORN, Rice, RICE AND PALAY, RICE RETAILER","BANANA","","","","","Chicken (live), Dressed Chicken, EGGS, FEEDS, FEEDS POULTRY SUPPLY, FROZEN PRODUCTS, GROCERY, NATIVE CHICKEN (LIVE), Quail Eggs","FROZEN MEAT PRODUCTS, SWINE","BAGOONG, Dried Fish","","","","",""],["ZAMBOANGA DEL SUR","SAN MIGUEL","POBLACION","","UNO OTSO SAN MIGUEL ZDS SMALL COCONUT FARMERS AGRICULTURE COOPERATIVE (UNSAMCOFACO)","CN 09-202605-00021","Cooperative","Micro-scale (Up to ₱3,000,000)","CORN GRITS","EGGPLANT (RETAIL)","","","","","","","","COCO BY-PRODUCTS, COCONUT - VCO, RICE","","","Coconut",""],["ZAMBOANGA DEL SUR","TAMBULIG","HAPPY VALLEY","","RGV AGRICULTURAL MACHINERY AND EQUIPMENT RENTAL","CN 09-202609-00002","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","TAMBULIG","NEW VILLAGE","","TAMBULIG BONIFACIO IRRIGATORS' AGRICULTURE COOPERATIVE (TAMBOCO)","CN 09-202605-00007","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA DEL SUR","TAMBULIG","SUMALIG","","SUMALIG SMALL COCONUT FARMERS AGRICULTURE COOPERATIVE","CN 09-202605-00023","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","","","","","","COCO SAP, COCO SUGAR, Coconut",""],["ZAMBOANGA DEL SUR","SOMINOT","SANTO NIñO","PUROK 1","SANTO NIÑO SOMINOT FARMERS LIVELIHOOD ASSOCIATION INC.","CN 09-202609-00009","Association","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice","","","","","","Chicken (live)","Beef, Live Animals, Pork","","","","","",""],["ZAMBOANGA DEL SUR","VINCENZO A. SAGUN","KABATAN","","KABATAN-NATIVE AGRICULTURAL FARM","CN 09-202607-00005","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","","LEAFY VEGETABLES","","","","CHICKEN NATIVE","CHICKEN","","","","","",""],["ZAMBOANGA DEL SUR","VINCENZO A. SAGUN","MARAYA","","SOFWA ZDS COCONUT FARMERS AGRICULTURE COOPERATIVE (SOCOFACO)","CN 09-202609-00005","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","COCO BY-PRODUCTS, COCONUT, TUBA","","","COPRA.",""],["ZAMBOANGA SIBUGAY","ALICIA","POBLACION","PUROK MANGA","ALICIA SCHOOL TEACHERS AND EMPLOYEES  MULTI-PURPOSE COOPERATIVE","CN 09-2024-00388","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","BUUG","BLISS","P-2","BUUG MULTIPURPOSE COOPERATIVE","CN 09-202610-00005","Cooperative","Medium-scale (₱15,000,001 - ₱100,000,000)","Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","IMELDA","LOWER BALURAN","","COMMUNITY INTEGRATION FELISYANO ALPHA BRAVO 13 PRODUCERS COOPERATIVE (CIFAB-13 PROCO)","CN 09-202604-00004","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","TURMERIC TEA",""],["ZAMBOANGA SIBUGAY","IMELDA","POBLACION","NEPTUNE STREET RIVERSIDE","IMELDA MUNICIPAL EMPLOYEES AND ENTREPRENEURS MULTI-PURPOSE COOPERATIVE (IMEEMCO)","CN 09-202608-00009","Cooperative","Medium-scale (₱15,000,001 - ₱100,000,000)","Rice","AMAPALAYA, Eggplant, Sitaw, Squash","","Banana, DURIAN, LANSONES, Mango, MANGOSTEEN, Papaya","Ginger, Sili","Gabi, Sweet Potato","Chicken (live), Chicken Eggs, Dressed Chicken","GOAT, NATIVE CHICKEN","","COCONUT, Rubber","","","",""],["ZAMBOANGA SIBUGAY","IMELDA","POBLACION","PUROK AGUNCILLO","JORE GOLDEN GRAINS CENTER","CN 09-202606-00025","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","IPIL","DON ANDRES","NEW PUBLIC MARKET, DON ANDRES, IPIL","IPIL MARKET VENDORS MULTI-PURPOSE COOPERATIVE","CN 09-2021-00053","Cooperative","Medium-scale (₱15,000,001 - ₱100,000,000)","Rice","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","KABASALAN","CONCEPCION","PUROK 5","KAPUNUNGAN SA MGA GAGMAYNG MANGINGISDA FISHERMEN COOPERATIVE (KAGMAFICO)","CN 09-202605-00004","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","BANGUS, Dried Fish, TALABA, Tilapia","","","","",""],["ZAMBOANGA SIBUGAY","KABASALAN","NAZARETH","PUROK-1B","NAZARETH FARMERS AGRARIAN REFORM COOPERATIVE (NAFARCO)","CN 09-202604-00005","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","Calamansi","","","","","","","","","CALAMANSI JUICE",""],["ZAMBOANGA SIBUGAY","MALANGAS","CANDIIS","","MALANGAS SMALL COCONUT FARMERS MARKETING COOPERATIVE","CN 09-202609-00007","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","CHARCOAL, Coconut, COPRA",""],["ZAMBOANGA SIBUGAY","NAGA","CROSSING STA. CLARA","KM2","NAGA PARISH MULTI-PURPOSE COOPERATIVE (NAPAMCO)","CN 09-202610-00002","Cooperative","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice","Squash, STRING BEANS","","","","","","","","Rubber","","","COPRA",""],["ZAMBOANGA SIBUGAY","OLUTANGA","ESPERANZA","011PUROK-1","OLUTANGA FARMERS MARKETING COOPERATIVE","CN 09-202607-00015","Cooperative","Micro-scale (Up to ₱3,000,000)","COCONUT, Corn (Feed), Corn (Food)","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","PAYAO","BULAWAN","","DREAMERGE EMPIRE AGRIVENTURES CORP.","CN 09-202606-00006","Corporation","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","","","","CALAMANSI JUICE",""],["ZAMBOANGA SIBUGAY","ROSELLER LIM","GANGO","PUROK, KUMINTANG GANGO , R.T. LIM ZAMBOANGA SIBUGAY","GANGO COCONUT FARMERS MULTI-PURPOSE COOPERATIVE","CN 09-2024-00384","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","Corn (Feed), Rice","","","","","","","","","","","","Coconut, COCONUT CHARCOAL, COPRA",""],["ZAMBOANGA SIBUGAY","ROSELLER LIM","DON PERFECTO","","BALURAN EXPANDED NATIONAL GREENING PROGRAM AGRICULTURAL PRODUCERS COOPERATIVE (BENAGPAPCO)","CN 09-202604-00003","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","","","Cacao, Rubber","","","Coconut, COCONUT BASE PRODUCTS, COPRA, MACAPUNO, Sugar, VINEGAR",""],["ZAMBOANGA SIBUGAY","SIAY","MONCHING","","SIAY DRIED FISH FISHERFOLKS MARKETING COOPERATIVE","CN 09-202601-00005","Cooperative","Micro-scale (Up to ₱3,000,000)","Rice","","","","","","","","Dried Fish","","","","",""],["ZAMBOANGA SIBUGAY","SIAY","SIBUGUEY","PUROK 7","ABANTE SIBUGUEY AGRICULTURE COOPERATIVE (ASACOOP)","CN 09-202606-00012","Cooperative","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","TITAY","ACHASOL","","ACHASOL FARMERS ASSOCIATION, INC.","CN 09-202607-00018","Association","Small-scale (₱3,000,001 - ₱15,000,000)","Corn (Food), Rice","","","","","","","","","","","","",""],["ZAMBOANGA SIBUGAY","TITAY","PALOMOC","PUROK TUBURAN","PALOMOC AGRARIAN REFORM BENEFICIARIES MULTI-PURPOSE COOPERATIVE (PARBEMCO)","CN 09-202604-00010","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","","","","","","Coconut, COCONUT BASE PRODUCTS, COCONUT BY PRODDUCTS, COCONUT HUSK, HANDICRAFT, WHOLE NUT",""],["ZAMBOANGA SIBUGAY","TITAY","SAN ANTONIO","","BEGGROW INTEGRATED FARM","CN 09-2025-00450","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","LETTUCE","","","Sili","","","","","","","","",""],["ZAMBOANGA SIBUGAY","TITAY","SAN ANTONIO","","JERUSALEM HERBAL PRODUCTS MANUFACTURING","CN 09-202605-00002","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","HERB, SALT","","","","","","","","",""],["ZAMBOANGA SIBUGAY","TUNGAWAN","LOWER TUNGAWAN","","TUNGAWAN COCONUT AND OIL PALM PLANTERS MARKETING COOPERATIVE (TUCOPPMACO)","CN 09-202605-00005","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","COCONUT","","","","","","","","","COCONUT BASE PRODUCTS, COCONUT BY PRODDUCTS, PALM OIL",""],["ZAMBOANGA SIBUGAY","TUNGAWAN","SAN PEDRO","","SAN PEDRO COCONUT FARMERS MARKETING COOPERATIVE (SPOCOFARMACO)","CN 09-2025-00487","Cooperative","Micro-scale (Up to ₱3,000,000)","C0RN, Rice, UPLAND RICE","Eggplant, Sitaw, Tomato","","","","","Chicken Eggs, LAYERED CHICKEN","","","","","","Coconut, COPRA, ORNAMENTAL",""],["ZAMBOANGA SIBUGAY","TUNGAWAN","BATUNGAN","","BATUNGAN COCONUT AND RUBBER FARMERS AGRICULTURE COOPERATIVE","CN 09-202602-00008","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","Rubber","","","Coconut",""],["-","CITY OF ZAMBOANGA","BUNGUIAO","SAN ISIDRO","COSTA ESTE IA AGRICULTURE COOPERATIVE","CN 09-202610-00006","Cooperative","Micro-scale (Up to ₱3,000,000)","RICE GRAIN / MILLED RICE, RICE RETAILER","","","","","","","","","","","","",""],["-","CITY OF ZAMBOANGA","CABALUAY","ZONE 3","CABALUAY COCONUT FARMERS AGRICULTURE COOPERATIVE (CCFACO)","CN 09-202606-00010","Cooperative","Micro-scale (Up to ₱3,000,000)","","EGGPLANT,SQUASH, AMPALAYA, CUCUMBER, POLE SITAO, UPO, PATOLA","EGGPLANT, CUCUMBER, OKRA, BEANS ETC.","Banana, Papaya","","","","","","","","","Coconut, COCONUT BY- PRODUCTS (COPRA, MACAPUNO,COCONUT HUSK, COCONUT SHELL), COCOPEAT, COCO COIR AND OTHER COCONUT END PRODUCTS",""],["-","CITY OF ZAMBOANGA","CABALUAY","","M.A. MARQUEZ POULTRY FARM","CN 09-202605-00015","Single Proprietor","Medium-scale (₱15,000,001 - ₱100,000,000)","","","","","","","Chicken (live)","","","","","","",""],["-","CITY OF ZAMBOANGA","LA PAZ","MONTEVISTA DE LA PAZ, POLE GRANDE","AGRICOOLTOURIST DE LA PAZ COCONUT AND LIVESTOCK AGRICULTURE COOPERATIVE( ADL- CLA COOP)","CN 09-202601-00002","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","COCONUT, COCONUT SELLING COPRA","","","(FREE RANGE EGGS), CHICKEN (LIVE) - FREE RANGE","HOG (LIVE ANIMAL), Milk and Dairy Products","","","","","COCONUT BY-PRODUCTS, HANDICRAFTS",""],["-","CITY OF ZAMBOANGA","LA PAZ","KM. 22, UPPER","LA PAZ FARMERS AGRICULTURE COOPERATIVE (LAPAFACO)","CN 09-202601-00004","Cooperative","Micro-scale (Up to ₱3,000,000)","","Eggplant, Tomato","BAGUIO BEANS, Cabbage, CHAYOTE, Pechay Bagiuo, SWEET PEPPER","","","Sweet Potato","","","","Cacao","","","Coconut, COPRA",""],["-","CITY OF ZAMBOANGA","LUMAYANG","PUROK 5","LUMAYANG COCONUT FARMERS AGRARIAN REFORM COOPERATIVE (LUMCOFARBENCO)","CN 09-202609-00006","Cooperative","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","","","","","","","COCONUT HUSK, COCONUT SHELL, COPRA, MACAPUNO",""],["-","CITY OF ZAMBOANGA","LUNZURAN","","VMY FARM","CN 09-202605-00017","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","Chicken (live)","","","","","","",""],["-","CITY OF ZAMBOANGA","MANICAHAN","ASINAN","MANICAHAN POULTRY FARM","CN 09-202604-00013","Single Proprietor","Small-scale (₱3,000,001 - ₱15,000,000)","","","","","","","Chicken (live)","","","","","","",""],["-","CITY OF ZAMBOANGA","PATALON","","DISTRITO UNO IA AGRICULTURE COOPERATIVE","CN 09-202610-00004","Cooperative","Micro-scale (Up to ₱3,000,000)","RICE GRAINS (BUGAS)","ALL AVAILABLE VEGETABLES AVAILABLE IN THE COMMUNITY","","","","","","","","","","","",""],["-","CITY OF ZAMBOANGA","PATALON","MALANDI","MALANDI PATALON ZAMBO. CITY AGRARIAN REFORM ASSOC. MULTI-PURPOSE COOP. (MAPZACARA)","CN 09-2020-00023","Cooperative","Micro-scale (Up to ₱3,000,000)","","","","Banana","","","","","","","","","COCO SUGAR, Coconut",""],["-","CITY OF ZAMBOANGA","PATALON","PUROK V AGRARIAN PATALON, ZAMBOANGA CITY","PATALON ESTATE AGRARIAN REFORM COOPERATIVE","CN 09-2024-00352","Cooperative","Micro-scale (Up to ₱3,000,000)","Corn (Food)","Eggplant, Sitaw, Squash","Pechay Bagiuo","Banana, Mango, Papaya","","Sweet Potato","Dressed Chicken","Pork","","","","","",""],["-","CITY OF ZAMBOANGA","PATALON","","ZAMBOANGA CITY WEST COAST FARMERS ASSOCIATION INC.","CN 09-202601-00001","Association","Micro-scale (Up to ₱3,000,000)","","CUCUMBER, Eggplant, PECHAY, Sitaw, Squash, Tomato","","Banana, Mango, Papaya","","","","CATTLE, GOAT, Live Animals","","","","","",""],["-","CITY OF ZAMBOANGA","SANTA CATALINA","WEE GUAIO DRIVE","PICK AND GO CONVENIENCE STORE","CN 09-202607-00021","Single Proprietor","Micro-scale (Up to ₱3,000,000)","Corn (Food), Rice","Eggplant, Sitaw, Squash, Tomato","Cabbage, Carrots, Pechay Bagiuo, Potato","Banana, CHIPS","","","Dressed Chicken","Beef, Pork","","","","","",""],["-","CITY OF ZAMBOANGA","TICTAPUL","ZONE 3","TICTAPUL COMMUNITY AGRICULTURE COOPERATIVE (TICOMCO)","CN 09-202607-00007","Cooperative","Micro-scale (Up to ₱3,000,000)","Cassava, Corn (Food), Rice","Eggplant, Sitaw, Squash","","","","","Chicken Eggs","GOATS, Pork","BOTTLED SARDINES, MARINATED BANGUS, Milkfish (Bangus)","","","","",""],["-","CITY OF ZAMBOANGA","VICTORIA","","NENA POULTRY FARM","CN 09-202605-00016","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","Chicken (live)","","","","","","",""],["CITY OF ISABELA (NOT A PROVINCE)","CITY OF ISABELA","SUNRISE VILLAGE","","ISABELA CITY COFFEE GROWERS ASSOCIATION INC.","CN 09-202608-00008","Association","Micro-scale (Up to ₱3,000,000)","","","","","","","","","","Coffee, COFFEE BEANS / GROUNDS, COFFEE POWDER AS END PRODUCT","","","",""],["CITY OF ISABELA (NOT A PROVINCE)","CITY OF ISABELA","TABIAWAN","","PAGARIGAN FOOD PRODUCTS","CN 09-202608-00003","Single Proprietor","Micro-scale (Up to ₱3,000,000)","","","","","","","","","ALAMANG, Dried Fish, SPANISH STYLE SARDINES","","","","",""]]};
+const EMBED_ASOF = "06 Nov 2026, 1:29 PM";
+
+const CATS = ["CEREALS","LOWLAND VEGETABLES","UPLAND VEGETABLES","FRUITS AND NUTS","SPICES","ROOT CROPS","POULTRY PRODUCTS","LIVESTOCK PRODUCTS","FISHERIES AND AQUACULTURE","INDUSTRIAL CROPS AND PRODUCTS","HALAL","ORGANIC PRODUCTS","OTHERS"];
+const KEEP = ["PROVINCE /HUC","CITY /MUNICIPALITY /SUB-MUNICIPALITY","BARANGAY","ADDRESS LINE","ENTERPRISE NAME","REGISTRATION NO.","ENTERPRISE TYPE","ASSET SIZE",...CATS,"REMARKS"];
+const STATUSES = [
+  {k:"NP-SS Qualified", c:"var(--ok)"},
+  {k:"Not Qualified", c:"var(--bad)"},
+  {k:"Private Partner", c:"var(--priv)"},
+  {k:"For Validation", c:"var(--pend)"}
+];
+const PROV_ORDER = ["ZAMBOANGA DEL NORTE","ZAMBOANGA DEL SUR","ZAMBOANGA SIBUGAY","CITY OF ZAMBOANGA (HUC)","CITY OF ISABELA"];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const titleCase = s => s.toLowerCase().replace(/(^|[\s(\/\-])([a-zñ])/g,(m,a,b)=>a+b.toUpperCase());
+const clean = s => String(s||"").replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/\s+/g," ").trim();
+const blank = s => !s || s === "-" ;
+
+function classify(remarks){
+  const r = (remarks||"").toUpperCase();
+  if (/NOT\s*-?\s*QUALIF/.test(r)) return "Not Qualified";
+  if (/PRIVATE/.test(r)) return "Private Partner";
+  if (/QUALIF/.test(r)) return "NP-SS Qualified";
+  return "For Validation";
+}
+function provLabel(p, m){
+  p = clean(p).toUpperCase(); m = clean(m).toUpperCase();
+  if (blank(p)) {
+    if (/ZAMBOANGA/.test(m)) return "CITY OF ZAMBOANGA (HUC)";
+    return blank(m) ? "UNSPECIFIED" : m;
+  }
+  if (/ISABELA/.test(p)) return "CITY OF ISABELA";
+  return p.replace(/\s*\(NOT A PROVINCE\)/,"");
+}
+// rec: object keyed by KEEP column names
+function normalize(rec){
+  const g = k => clean(rec[k]);
+  const prov = provLabel(g("PROVINCE /HUC"), g("CITY /MUNICIPALITY /SUB-MUNICIPALITY"));
+  const mun = blank(g("CITY /MUNICIPALITY /SUB-MUNICIPALITY")) ? "UNSPECIFIED" : g("CITY /MUNICIPALITY /SUB-MUNICIPALITY").toUpperCase();
+  const brgy = blank(g("BARANGAY")) ? "" : g("BARANGAY").toUpperCase();
+  const addr = blank(g("ADDRESS LINE")) ? "" : g("ADDRESS LINE").toUpperCase();
+  const comm = {}; const keys = new Set();
+  for (const c of CATS){
+    const v = g(c); if (blank(v)) continue;
+    const items = v.split(",").map(x=>clean(x)).filter(x=>x && x!=="-");
+    if (!items.length) continue;
+    comm[c] = items.map(x=>titleCase(x));
+    items.forEach(x=>keys.add(c+"|"+x.toUpperCase()));
+  }
+  const provShort = prov.replace(" (HUC)","");
+  const locParts = [addr, brgy ? "Brgy. "+brgy : "", mun === provShort ? mun : mun, prov === "CITY OF ZAMBOANGA (HUC)" || prov === "CITY OF ISABELA" ? "" : prov].filter(Boolean);
+  const r = {
+    r: g("REGISTRATION NO."), n: g("ENTERPRISE NAME"), p: prov, m: mun, b: brgy,
+    t: g("ENTERPRISE TYPE") || "Unspecified", s: classify(g("REMARKS")), c: comm, ck: keys,
+    l: locParts.join(", ")
+  };
+  r.hay = [r.r, r.n, r.l, ...Object.values(comm).flat()].join(" ").toUpperCase();
+  return r;
+}
+
+let ROWS = [];
+let ASOF = EMBED_ASOF, SRC = "Embedded masterlist (FFEDIS export)";
+let COMMODITIES = new Map(); // key cat|ITEM -> {cat,label,count}
+const st = {q:"", prov:"", mun:"", status:"", cat:"", com:"", type:"", sort:"n", dir:1, page:1, per:25};
+
+function loadRows(records){
+  ROWS = records.map(normalize).filter(r => r.r || r.n);
+  COMMODITIES = new Map();
+  for (const r of ROWS){
+    for (const k of r.ck){
+      const [cat, item] = k.split("|");
+      if (!COMMODITIES.has(k)) COMMODITIES.set(k,{cat, label:titleCase(item), count:0});
+      COMMODITIES.get(k).count++;
+    }
+  }
+  st.page = 1;
+  buildStaticSelects(); render();
+}
+function fromTable(cols, rows){ return rows.map(a => Object.fromEntries(cols.map((c,i)=>[c,a[i]]))); }
+
+function opt(v, label, sel){ return `<option value="${esc(v)}"${v===sel?" selected":""}>${esc(label)}</option>`; }
+function provList(){
+  const s = [...new Set(ROWS.map(r=>r.p))];
+  return s.sort((a,b)=>{const ia=PROV_ORDER.indexOf(a), ib=PROV_ORDER.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib) || a.localeCompare(b);});
+}
+function buildStaticSelects(){
+  $("#fProv").innerHTML = opt("","All provinces / HUCs",st.prov) + provList().map(p=>opt(p,p+" ("+ROWS.filter(r=>r.p===p).length+")",st.prov)).join("");
+  $("#fStatus").innerHTML = opt("","All classifications",st.status) + STATUSES.map(s=>opt(s.k,s.k,st.status)).join("");
+  $("#fCat").innerHTML = opt("","All commodity groups",st.cat) + CATS.filter(c=>[...COMMODITIES.values()].some(x=>x.cat===c)).map(c=>opt(c,titleCase(c),st.cat)).join("");
+  const types = [...new Set(ROWS.map(r=>r.t))].sort();
+  $("#fType").innerHTML = opt("","All enterprise types",st.type) + types.map(t=>opt(t,t,st.type)).join("");
+  buildMun(); buildCom();
+}
+function buildMun(){
+  const sel = $("#fMun");
+  if (!st.prov){ sel.innerHTML = opt("","Select a province first",""); sel.disabled = true; st.mun=""; return; }
+  sel.disabled = false;
+  const ms = {}; ROWS.filter(r=>r.p===st.prov).forEach(r=>ms[r.m]=(ms[r.m]||0)+1);
+  sel.innerHTML = opt("","All cities / municipalities",st.mun) + Object.keys(ms).sort().map(m=>opt(m,m+" ("+ms[m]+")",st.mun)).join("");
+}
+function buildCom(){
+  const list = [...COMMODITIES.entries()].filter(([k,v])=>!st.cat || v.cat===st.cat);
+  // group label variants across categories when no category picked
+  let items;
+  if (st.cat){ items = list.map(([k,v])=>({v:k, label:v.label, n:v.count})); }
+  else {
+    const m = new Map();
+    list.forEach(([k,v])=>{const it=k.split("|")[1]; const cur=m.get(it)||{v:"*|"+it,label:v.label,n:0}; cur.n+=v.count; m.set(it,cur);});
+    items=[...m.values()];
+  }
+  items.sort((a,b)=>a.label.localeCompare(b.label));
+  if (st.com && !items.some(i=>i.v===st.com)) st.com="";
+  $("#fCom").innerHTML = opt("","All commodities ("+items.length+")",st.com) + items.map(i=>opt(i.v,i.label+" ("+i.n+")",st.com)).join("");
+}
+
+function matches(r, skip){
+  if (skip!=="prov" && st.prov && r.p!==st.prov) return false;
+  if (skip!=="prov" && st.mun && r.m!==st.mun) return false;
+  if (skip!=="status" && st.status && r.s!==st.status) return false;
+  if (st.type && r.t!==st.type) return false;
+  if (st.cat && !Object.prototype.hasOwnProperty.call(r.c, st.cat)) return false;
+  if (st.com){
+    const [cat,item] = st.com.split("|");
+    if (cat==="*"){ if (![...r.ck].some(k=>k.endsWith("|"+item))) return false; }
+    else if (!r.ck.has(st.com)) return false;
+  }
+  if (st.q){
+    const terms = st.q.toUpperCase().split(/\s+/).filter(Boolean);
+    if (!terms.every(t=>r.hay.includes(t))) return false;
+  }
+  return true;
+}
+function filtered(){
+  const out = ROWS.filter(r=>matches(r));
+  const k = st.sort;
+  out.sort((a,b)=> (k==="l" ? (a.p+a.m+a.b).localeCompare(b.p+b.m+b.b) : String(a[k]).localeCompare(String(b[k]), undefined, {numeric:true})) * st.dir || a.n.localeCompare(b.n));
+  return out;
+}
+function hl(text){
+  const t = esc(text);
+  if (!st.q) return t;
+  const terms = st.q.split(/\s+/).filter(x=>x.length>1).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
+  if (!terms.length) return t;
+  return t.replace(new RegExp("("+terms.map(esc).join("|")+")","gi"),"<mark>$1</mark>");
+}
+function filterDesc(){
+  const d = [];
+  if (st.prov) d.push(["Province/HUC", st.prov]);
+  if (st.mun) d.push(["City/Municipality", st.mun]);
+  if (st.status) d.push(["NP-SS", st.status]);
+  if (st.cat) d.push(["Commodity group", titleCase(st.cat)]);
+  if (st.com) d.push(["Commodity", titleCase(st.com.split("|")[1])]);
+  if (st.type) d.push(["Type", st.type]);
+  if (st.q) d.push(["Search", '"'+st.q+'"']);
+  return d;
+}
+
+function renderSummary(){
+  $("#kTotal").textContent = ROWS.length;
+  const coops = ROWS.filter(r=>/coop|assoc/i.test(r.t)).length;
+  $("#kSub").textContent = coops+" cooperatives & associations · "+(ROWS.length-coops)+" other enterprises";
+  const base = ROWS.filter(r=>matches(r,"prov"));
+  const pc = provList().map(p=>[p, base.filter(r=>r.p===p).length]);
+  const max = Math.max(1,...pc.map(x=>x[1]));
+  $("#provBars").innerHTML = pc.map(([p,n])=>`<button type="button" class="bar${st.prov===p?" on":""}" data-prov="${esc(p)}" aria-pressed="${st.prov===p}"><span class="nm" title="${esc(p)}">${esc(titleCase(p).replace("(Huc)","(HUC)"))}</span><span class="tr"><span class="fl" style="width:${n/max*100}%;display:block"></span></span><span class="ct">${n}</span></button>`).join("");
+  const sb = ROWS.filter(r=>matches(r,"status"));
+  $("#statusTiles").innerHTML = STATUSES.map(s=>{const n=sb.filter(r=>r.s===s.k).length; return `<button type="button" class="stat${st.status===s.k?" on":""}" style="--c:${s.c}" data-status="${esc(s.k)}" aria-pressed="${st.status===s.k}"><div class="n">${n}</div><div class="t">${esc(s.k)}</div></button>`;}).join("");
+}
+function renderChips(){
+  const map = {prov:"Province/HUC",mun:"City/Municipality",status:"NP-SS",cat:"Group",com:"Commodity",type:"Type",q:"Search"};
+  const vals = {prov:st.prov,mun:st.mun,status:st.status,cat:st.cat&&titleCase(st.cat),com:st.com&&titleCase(st.com.split("|")[1]),type:st.type,q:st.q&&'"'+st.q+'"'};
+  const html = Object.keys(map).filter(k=>vals[k]).map(k=>`<span class="chip">${esc(map[k])}: <b>${esc(vals[k])}</b><button type="button" data-clear="${k}" aria-label="Remove ${esc(map[k])} filter">×</button></span>`).join("");
+  $("#chips").innerHTML = html;
+  $("#chips").style.display = html ? "flex" : "none";
+}
+function render(){
+  renderSummary(); renderChips();
+  const rows = filtered();
+  const per = st.per || rows.length || 1;
+  const pages = Math.max(1, Math.ceil(rows.length/per));
+  if (st.page>pages) st.page = pages;
+  const start = (st.page-1)*per;
+  const slice = rows.slice(start, start+per);
+  $("#count").textContent = rows.length===ROWS.length ? `Showing all ${ROWS.length} enterprises` : `${rows.length} of ${ROWS.length} enterprises match`;
+  $("#tbody").innerHTML = slice.length ? slice.map((r,i)=>`<tr><td class="idx">${start+i+1}</td><td class="reg">${hl(r.r)}</td><td class="nm">${hl(r.n)}</td><td class="loc">${hl(r.l)}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="empty">No registered enterprise matches these filters. Try removing a filter or a search word.</td></tr>`;
+  document.querySelectorAll("[data-ar]").forEach(s=>s.textContent = s.dataset.ar===st.sort ? (st.dir>0?"▲":"▼") : "");
+  let pg = `<button class="btn" type="button" data-pg="${st.page-1}" ${st.page<=1?"disabled":""}>‹ Prev</button><span class="hint">Page ${st.page} of ${pages}</span><button class="btn" type="button" data-pg="${st.page+1}" ${st.page>=pages?"disabled":""}>Next ›</button>`;
+  $("#pgs").innerHTML = pg;
+  $("#dlBtn").disabled = !rows.length;
+}
+
+/* ---------- events ---------- */
+let qt;
+$("#q").addEventListener("input", e=>{ clearTimeout(qt); qt=setTimeout(()=>{st.q=e.target.value.trim(); st.page=1; render();},150); });
+$("#fProv").addEventListener("change", e=>{ st.prov=e.target.value; st.mun=""; st.page=1; buildMun(); render(); });
+$("#fMun").addEventListener("change", e=>{ st.mun=e.target.value; st.page=1; render(); });
+$("#fStatus").addEventListener("change", e=>{ st.status=e.target.value; st.page=1; render(); });
+$("#fCat").addEventListener("change", e=>{ st.cat=e.target.value; st.page=1; buildCom(); render(); });
+$("#fCom").addEventListener("change", e=>{ st.com=e.target.value; st.page=1; render(); });
+$("#fType").addEventListener("change", e=>{ st.type=e.target.value; st.page=1; render(); });
+$("#per").addEventListener("change", e=>{ st.per=+e.target.value; st.page=1; render(); });
+$("#reset").addEventListener("click", resetAll);
+function resetAll(){ Object.assign(st,{q:"",prov:"",mun:"",status:"",cat:"",com:"",type:"",page:1}); $("#q").value=""; buildStaticSelects(); render(); }
+document.addEventListener("click", e=>{
+  const b = e.target.closest("[data-prov],[data-status],[data-clear],[data-pg],[data-sort]");
+  if (!b) return;
+  if (b.dataset.prov!==undefined){ st.prov = st.prov===b.dataset.prov ? "" : b.dataset.prov; st.mun=""; $("#fProv").value=st.prov; buildMun(); }
+  else if (b.dataset.status!==undefined){ st.status = st.status===b.dataset.status ? "" : b.dataset.status; $("#fStatus").value=st.status; }
+  else if (b.dataset.clear){ const k=b.dataset.clear; st[k]=""; if(k==="prov"){st.mun="";buildMun();} if(k==="cat")buildCom(); if(k==="q")$("#q").value=""; const idm={prov:"#fProv",mun:"#fMun",status:"#fStatus",cat:"#fCat",com:"#fCom",type:"#fType"}; if(idm[k])$(idm[k]).value=""; }
+  else if (b.dataset.pg){ st.page=+b.dataset.pg; render(); b.closest(".results").scrollIntoView({block:"start",behavior:"smooth"}); return; }
+  else if (b.dataset.sort){ const k=b.dataset.sort; if(st.sort===k) st.dir*=-1; else {st.sort=k; st.dir=1;} }
+  st.page=1; render();
+});
+
+function toast(msg, ms=4200){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", ms); }
+
+/* ---------- download modal ---------- */
+const scrim = $("#scrim");
+let lastFocus;
+$("#dlBtn").addEventListener("click", ()=>{
+  const rows = filtered(); const d = filterDesc();
+  $("#scope").innerHTML = `The PDF will list <b>${rows.length}</b> enterprise${rows.length===1?"":"s"}` + (d.length ? ` filtered by ${d.map(([a,b])=>esc(a)+": <b>"+esc(b)+"</b>").join(" · ")}.` : ` (complete masterlist, no filters).`);
+  $("#fErr").textContent=""; lastFocus=document.activeElement;
+  scrim.classList.add("open"); setTimeout(()=>$("#rName").focus(),30);
+});
+function closeModal(){ scrim.classList.remove("open"); lastFocus&&lastFocus.focus(); }
+$("#cancel").addEventListener("click", closeModal);
+scrim.addEventListener("click", e=>{ if(e.target===scrim) closeModal(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && scrim.classList.contains("open")) closeModal(); });
+
+$("#reqForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const f = {
+    name: clean($("#rName").value), office: clean($("#rOffice").value), position: clean($("#rPos").value),
+    email: clean($("#rEmail").value), phone: clean($("#rPhone").value),
+    purpose: $("#rPurpose").value, detail: clean($("#rDetail").value), consent: $("#rConsent").checked
+  };
+  const miss = [];
+  if (f.name.length<3) miss.push("Name of Requisitioner");
+  if (!f.office) miss.push("Office/Organization");
+  if (!f.position) miss.push("Position/Designation");
+  if (!f.purpose) miss.push("Purpose of download");
+  if (!f.detail) miss.push("Purpose details");
+  if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) miss.push("a valid e-mail (or leave it blank)");
+  if (miss.length){ $("#fErr").textContent = "Please complete: "+miss.join(", ")+"."; return; }
+  if (!f.consent){ $("#fErr").textContent = "Please tick the certification box to continue."; return; }
+  const btn = $("#genBtn"); btn.disabled = true; btn.textContent = "Preparing…";
+  try{
+    const rows = filtered();
+    const now = new Date();
+    const ctrl = "FFEDIS-DL-" + now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "-" + Math.random().toString(36).slice(2,6).toUpperCase();
+    const blob = buildPdf(rows, f, ctrl, now);
+    const dl = await claude.use("downloads");
+    if (!dl){ $("#fErr").textContent = "Downloads aren't available in this view. Open this page on claude.ai in a browser to download the PDF."; return; }
+    const fname = "FFEDIS-Registered-Enterprises_" + (st.mun||st.prov||"Region-IX").replace(/[^A-Za-z0-9]+/g,"-") + "_" + now.toISOString().slice(0,10) + ".pdf";
+    await dl.save({filename: fname, data: blob});
+    logRequest(f, ctrl, rows.length, now);
+    closeModal(); toast("PDF saved. Control no. "+ctrl);
+  }catch(err){
+    const code = err && err.code;
+    if (code==="declined") $("#fErr").textContent = "Download cancelled. Press Generate PDF to try again.";
+    else if (code==="rate_limited") $("#fErr").textContent = "A save prompt is already open. Finish it, then try again.";
+    else { $("#fErr").textContent = "The PDF could not be saved here ("+(code||err.message||"error")+"). Try again, or open the page on claude.ai."; console.error(err); }
+  }finally{ btn.disabled=false; btn.textContent="Generate PDF"; }
+});
+
+function pdfSafe(s){ return clean(s).replace(/[–—]/g,"-").replace(/[^\x20-\x7E -ÿ]/g,""); }
+function fmtDate(d){ return d.toLocaleString("en-PH",{year:"numeric",month:"long",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+function buildPdf(rows, f, ctrl, now){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 14;
+  const green=[31,107,58], gold=[201,138,11], ink=[24,36,28], grey=[91,107,96];
+  // letterhead
+  doc.setTextColor(...grey); doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+  doc.text("Republic of the Philippines", W/2, 13, {align:"center"});
+  doc.setTextColor(...green); doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("DEPARTMENT OF AGRICULTURE", W/2, 18.5, {align:"center"});
+  doc.setFontSize(9); doc.setTextColor(...ink);
+  doc.text("Regional Field Office IX - Agribusiness and Marketing Assistance Division", W/2, 23, {align:"center"});
+  doc.setDrawColor(...gold); doc.setLineWidth(0.8); doc.line(M, 26.5, W-M, 26.5);
+  doc.setFontSize(14); doc.setTextColor(...ink);
+  doc.text("LIST OF FFEDIS-REGISTERED ENTERPRISES", W/2, 34, {align:"center"});
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...grey);
+  doc.text(pdfSafe("Region IX (Zamboanga Peninsula) - Masterlist as of "+ASOF), W/2, 39, {align:"center"});
+  // scope + requisitioner box
+  const d = filterDesc();
+  const scopeTxt = d.length ? d.map(([a,b])=>a+": "+b).join("  |  ") : "None (complete masterlist)";
+  const reqLines = [
+    ["Control No.", ctrl],
+    ["Requisitioner", f.name],
+    ["Position / Designation", f.position],
+    ["Office / Organization", f.office],
+    ...(f.email||f.phone ? [["Contact", [f.email,f.phone].filter(Boolean).join("  /  ")]] : []),
+    ["Purpose", f.purpose + " - " + f.detail],
+    ["Filters applied", scopeTxt],
+    ["Records listed", String(rows.length)],
+    ["Date generated", fmtDate(now)]
+  ];
+  doc.autoTable({
+    startY: 44, margin:{left:M,right:M}, theme:"plain",
+    body: reqLines.map(([a,b])=>[pdfSafe(a), pdfSafe(b)]),
+    styles:{fontSize:8.5, cellPadding:{top:1.1,bottom:1.1,left:2,right:2}, textColor:ink},
+    columnStyles:{0:{fontStyle:"bold", cellWidth:42, textColor:grey}},
+    tableLineColor:[217,224,214], tableLineWidth:0.3,
+    didDrawPage: ()=>{}
+  });
+  const body = rows.map((r,i)=>[String(i+1), pdfSafe(r.r), pdfSafe(r.n), pdfSafe(r.l)]);
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 5, margin:{left:M,right:M,top:18,bottom:22},
+    head:[["#","FFEDIS Reg. No.","Enterprise Name","Location"]], body,
+    styles:{fontSize:8.5, cellPadding:1.8, textColor:ink, lineColor:[217,224,214], lineWidth:0.2, valign:"top"},
+    headStyles:{fillColor:green, textColor:255, fontStyle:"bold"},
+    alternateRowStyles:{fillColor:[243,245,240]},
+    columnStyles:{0:{cellWidth:9, halign:"right", textColor:grey},1:{cellWidth:36, fontStyle:"bold"},2:{cellWidth:72},3:{cellWidth:"auto"}},
+    didDrawPage: (data)=>{
+      if (data.pageNumber>1){
+        doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...green);
+        doc.text("DA-RFO IX AMAD - List of FFEDIS-Registered Enterprises", M, 11);
+        doc.setFont("helvetica","normal"); doc.setTextColor(...grey);
+        doc.text(ctrl, W-M, 11, {align:"right"});
+      }
+    }
+  });
+  // closing note
+  let y = doc.lastAutoTable.finalY + 7;
+  if (y > H-40){ doc.addPage(); y = 24; }
+  doc.setFont("helvetica","italic"); doc.setFontSize(8); doc.setTextColor(...grey);
+  const note = "This list is released to the requisitioner named above for the stated purpose only. Personal and contact information of enterprise representatives is withheld under the Data Privacy Act of 2012 (RA 10173). Further sharing or use for other purposes requires clearance from DA-RFO IX AMAD. FFEDIS registration data are as encoded by the enterprises and validated by AMAD; NP-SS classifications marked 'For Validation' are not yet final.";
+  doc.text(doc.splitTextToSize(note, W-2*M), M, y);
+  // footers
+  const n = doc.internal.getNumberOfPages();
+  for (let i=1;i<=n;i++){
+    doc.setPage(i);
+    doc.setDrawColor(217,224,214); doc.setLineWidth(0.3); doc.line(M, H-14, W-M, H-14);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...grey);
+    doc.text(pdfSafe("Requested by "+f.name+", "+f.position+", "+f.office), M, H-9.5, {maxWidth: W-2*M-30});
+    doc.text("Page "+i+" of "+n, W-M, H-9.5, {align:"right"});
+    doc.text(pdfSafe("Generated "+fmtDate(now)+" via FFEDIS Registry Dashboard | "+ctrl), M, H-6);
+  }
+  return doc.output("blob");
+}
+
+/* ---------- shared data: masterlist updates + request log ---------- */
+let DB=null, USER=null, UID=null, IS_OWNER=false, LOGROWS=[];
+async function logRequest(f, ctrl, count, now){
+  try{
+    if (!DB || !UID) return;
+    const ref = DB.doc("requests/"+UID);
+    const snap = await ref.get();
+    const entries = snap.exists ? [...(snap.data().entries||[])] : [];
+    entries.push({at: now.toISOString(), ctrl, name:f.name, office:f.office, position:f.position, email:f.email, phone:f.phone, purpose:f.purpose, detail:f.detail, count, filters: filterDesc().map(([a,b])=>a+": "+b).join("; ") || "None"});
+    await ref.set({entries: entries.slice(-400)});
+  }catch(e){ console.warn("Request log not saved", e); }
+}
+function renderLog(){
+  const tb = $("#logBody");
+  if (!LOGROWS.length){ tb.innerHTML = `<tr><td colspan="8" class="empty">No requests logged yet.</td></tr>`; return; }
+  tb.innerHTML = LOGROWS.map(e=>`<tr><td style="white-space:nowrap">${esc(new Date(e.at).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}))}</td><td style="white-space:nowrap">${esc(e.ctrl)}</td><td><b>${esc(e.name)}</b>${e.email?"<br><span class='hint'>"+esc(e.email)+"</span>":""}</td><td>${esc(e.position)}</td><td>${esc(e.office)}</td><td>${esc(e.purpose)}<br><span class="hint">${esc(e.detail)}</span></td><td style="text-align:right">${esc(e.count)}</td><td class="hint">${esc(e.filters)}</td></tr>`).join("");
+}
+$("#logCsv").addEventListener("click", async ()=>{
+  if (!LOGROWS.length){ toast("The log is empty."); return; }
+  const cols = ["at","ctrl","name","position","office","email","phone","purpose","detail","count","filters"];
+  const csv = [cols.join(",")].concat(LOGROWS.map(e=>cols.map(c=>'"'+String(e[c]??"").replace(/"/g,'""')+'"').join(","))).join("\r\n");
+  try{ const dl = await claude.use("downloads"); if(!dl) throw {code:"unavailable"}; await dl.save({filename:"FFEDIS-download-log_"+new Date().toISOString().slice(0,10)+".csv", data:"﻿"+csv}); }
+  catch(e){ if(e.code!=="declined") toast("Could not save the log here ("+(e.code||"error")+")."); }
+});
+
+$("#csvIn").addEventListener("change", e=>{
+  const file = e.target.files[0]; if (!file) return;
+  Papa.parse(file, {header:true, skipEmptyLines:true, complete: async res=>{
+    e.target.value="";
+    const hdr = (res.meta.fields||[]).map(h=>h.trim());
+    const need = ["ENTERPRISE NAME","REGISTRATION NO.","CITY /MUNICIPALITY /SUB-MUNICIPALITY"];
+    const missing = need.filter(n=>!hdr.includes(n));
+    if (missing.length){ toast("That file is missing column(s): "+missing.join(", ")+". Upload the FFEDIS MASTERLIST export as .csv.", 7000); return; }
+    // keep only public columns; contact details never leave the browser
+    const rows = res.data.map(o=>{const t={}; for (const [k,v] of Object.entries(o)) t[k.trim()]=v; return KEEP.map(c=>clean(t[c]||""));}).filter(a=>a[4]||a[5]);
+    const m = file.name.match(/(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})/);
+    const asof = m ? new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]) : new Date();
+    const asofTxt = asof.toLocaleString("en-PH",{day:"2-digit",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
+    try{
+      const CH = 300, parts = Math.ceil(rows.length/CH);
+      for (let i=0;i<parts;i++) await DB.doc("registry/part"+i).set({rows: rows.slice(i*CH,(i+1)*CH)});
+      await DB.doc("registry/meta").set({parts, cols: KEEP, asof: asofTxt, file: file.name, count: rows.length, updatedAt: new Date().toISOString()});
+      toast("Masterlist updated: "+rows.length+" enterprises from "+file.name+". Everyone now sees this list.", 6000);
+    }catch(err){ toast("Upload failed ("+(err.code||"error")+"). The list on screen was not changed.", 7000); console.error(err); }
+  }, error: ()=>toast("Could not read that file. Save it as .csv and try again.")});
+});
+
+async function initShared(){
+  DB = await claude.use("db"); USER = await claude.use("user");
+  if (USER){ UID = await USER.id(); IS_OWNER = await USER.isOwner(); }
+  if (!DB) return;
+  // live masterlist (falls back to embedded copy)
+  DB.doc("registry/meta").onSnapshot(async snap=>{
+    if (!snap.exists) return;
+    const meta = snap.data();
+    try{
+      const all = [];
+      for (let i=0;i<meta.parts;i++){ const p = await DB.doc("registry/part"+i).get(); if (p.exists) all.push(...p.data().rows); }
+      if (!all.length) return;
+      ASOF = meta.asof; SRC = "Updated from "+meta.file;
+      $("#asof").textContent = ASOF; $("#srcnote").textContent = SRC;
+      loadRows(fromTable(meta.cols, all));
+    }catch(e){ console.warn(e); }
+  }, e=>console.warn(e));
+  if (IS_OWNER){
+    $("#ownerPanel").hidden = false;
+    $("#logNote").textContent = "Loading…";
+    const t = setTimeout(()=>$("#logNote").textContent="The log can't be reached yet.",10000);
+    DB.collection("requests").onSnapshot(snap=>{
+      clearTimeout(t);
+      LOGROWS = snap.docs.flatMap(d=>(d.data().entries||[])).sort((a,b)=>b.at.localeCompare(a.at));
+      $("#logNote").textContent = LOGROWS.length+" request"+(LOGROWS.length===1?"":"s")+" logged";
+      renderLog();
+    }, e=>{ clearTimeout(t); $("#logNote").textContent="Log unavailable ("+e.code+")."; });
+  }
+}
+
+$("#asof").textContent = ASOF; $("#srcnote").textContent = SRC;
+loadRows(fromTable(EMBED.cols, EMBED.rows));
+initShared();
+</script>
+</body>
+</html>
